@@ -91,6 +91,12 @@ export function testStorageBackend(backendCreator: () => Promise<StorageBackend>
     describe('Basics with auth example', () => {
         testStorageBackendWithAuthExample(backendCreator)
     })
+    describe('Relationship fetching', () => {
+        testStorageBackendRelationshipFetching(backendCreator)
+    })
+    describe('Cross-relationship queries', () => {
+        testStorageBackendCrossRelationshipQueries(backendCreator)
+    })
     if (fullTextSearch) {
         describe('Full text search', () => {
             testStorageBackendFullTextSearch(backendCreator)
@@ -200,5 +206,95 @@ export function testStorageBackendFullTextSearch(backendCreator: () => Promise<S
                 text: 'testing this stuff is not always easy',
             }
         ])
+    })
+}
+
+export function testStorageBackendRelationshipFetching(backendCreator: () => Promise<StorageBackend>) {
+    let backend: StorageBackend
+    let storageManager: StorageManager
+
+    beforeEach(async () => {
+        backend = await backendCreator()
+        storageManager = createTestStorageManager(backend)
+        await backend.migrate()
+    })
+
+    afterEach(async () => {
+        await backend.cleanup()
+    })
+
+    it('should be able to fetch (single)ChildOf relationships', async function() {
+        if (!backend.supports('relationshipFetching')) {
+            this.skip()
+        }
+
+        const email = 'blub@bla.com', passwordHash = 'hashed!', expires = Date.now() + 1000 * 60 * 60 * 24
+        await storageManager.collection('user').createObject(generateTestObject({ email, passwordHash, expires }))
+        
+        expect(await storageManager.collection('user').findOneObject({identifier: `email:${email}`})).toEqual({
+            id: 1,
+            identifier: `email:${email}`,
+            isActive: false,
+            passwordHash: 'hashed!'
+        })
+        expect(await storageManager.collection('user').findOneObject(
+            {identifier: `email:${email}`},
+            {relationships: ['emails']}
+        )).toEqual({
+            id: 1,
+            identifier: `email:${email}`,
+            isActive: false,
+            passwordHash: 'hashed!',
+            emails: [{
+                id: 1,
+                user: 1,
+                isPrimary: true,
+                isVerified: false,
+                email: 'blub@bla.com'
+            }]
+        })
+        expect(await storageManager.collection('user').findOneObject(
+            {identifier: `email:${email}`},
+            {relationships: ['emails', 'emails.verificationCode']}
+        )).toEqual({
+            id: 1,
+            identifier: `email:${email}`,
+            isActive: false,
+            passwordHash: 'hashed!',
+            emails: [{
+                id: 1,
+                user: 1,
+                isPrimary: true,
+                isVerified: false,
+                email: 'blub@bla.com',
+                verificationCode: expect.objectContaining({
+                    id: 1,
+                    userEmail: 1,
+                    expires: expect.any(Number),
+                    code: expect.any(String)
+                })
+            }]
+        })
+    })
+}
+
+export function testStorageBackendCrossRelationshipQueries(backendCreator: () => Promise<StorageBackend>) {
+    let backend: StorageBackend
+    let storageManager: StorageManager
+
+    beforeEach(async () => {
+        backend = await backendCreator()
+        storageManager = createTestStorageManager(backend)
+        await backend.migrate()
+    })
+
+    afterEach(async () => {
+        await backend.cleanup()
+    })
+
+    it('should be able to do cross-relationship queries', async function () {
+        if (!backend.supports('crossRelationshipQueries')) {
+            this.skip()
+        }
     })
 }

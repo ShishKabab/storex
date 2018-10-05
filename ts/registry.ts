@@ -176,13 +176,19 @@ export default class StorageRegistry extends EventEmitter {
     }
 
     _connectReverseRelationships() {
-        Object.values(this.collections).forEach(sourceCollectionDef => {
+        Object.entries(this.collections).forEach(([collectionName, sourceCollectionDef]) => {
             for (const relationship of sourceCollectionDef.relationships) {
                 if (isConnectsRelationship(relationship)) {
                     this.collections[relationship.connects[0]].reverseRelationshipsByAlias[relationship.reverseAliases[0]] = relationship
                     this.collections[relationship.connects[1]].reverseRelationshipsByAlias[relationship.reverseAliases[1]] = relationship
                 } else if (isChildOfRelationship(relationship)) {
                     const targetCollectionDef = this.collections[relationship.targetCollection]
+                    if (!targetCollectionDef) {
+                        throw new Error(
+                            `Tried to create (single-)child-of relationship from collection ${collectionName} ` +
+                            `to non-existing collection ${relationship.targetCollection}`
+                        )
+                    }
                     targetCollectionDef.reverseRelationshipsByAlias[relationship.reverseAlias] = relationship
                 }
             }

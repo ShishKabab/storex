@@ -1,10 +1,12 @@
 import StorageRegistry from "../registry"
 import { StorageBackendFeatureSupport } from "./backend-features";
 
+export type RelationshipFetch = string[] | {[name : string] : any}
+export type RelationshipFetchOptions = {relationships? : string[] | any}
 export type CreateSingleOptions = {database? : string}
 export type CreateSingleResult = {object? : any}
 export type FindSingleOptions = {database? : string}
-export type FindManyOptions = {database? : string, limit? : number, skip? : number, reverse? : boolean}
+export type FindManyOptions = {database? : string, limit? : number, skip? : number, reverse? : boolean} & RelationshipFetchOptions
 export type UpdateManyOptions = {database? : string}
 export type UpdateManyResult = any
 export type UpdateSingleOptions = {database? : string}
